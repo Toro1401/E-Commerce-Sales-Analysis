@@ -1,0 +1,66 @@
+"""Standalone, offline dashboards. All filters operate on published aggregates."""
+import json
+from pathlib import Path
+
+def render(kind,data,path):
+    payload=json.dumps(data,ensure_ascii=False).replace('<','\\u003c')
+    title='Olist · Commercial performance' if kind=='ecommerce' else 'Citi Bike · Operations explorer'
+    html=r'''<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>__TITLE__</title>
+<style>:root{--ink:#14283d;--muted:#53677c;--line:#d9e3ec;--blue:#2167ae;--paper:#fff}*{box-sizing:border-box}body{font:16px/1.5 system-ui,sans-serif;color:var(--ink);background:#f1f5f9;margin:0}header{background:#14283d;color:white;padding:42px max(24px,calc((100vw - 1200px)/2))}header p{color:#b9cde1;max-width:840px}h1{font-size:clamp(28px,4vw,44px);line-height:1.15;margin:10px 0}main{max-width:1248px;margin:auto;padding:24px}.eyebrow{text-transform:uppercase;letter-spacing:.15em;font-size:12px;font-weight:700}h2{font-size:21px;margin-top:0}label{font-size:13px;font-weight:650;display:flex;flex-direction:column;gap:5px}select,input,button{font:inherit;padding:10px 14px;border:1px solid #b7c9d9;border-radius:7px;background:white;color:var(--ink)}button{cursor:pointer;background:#2167ae;color:white;align-self:end}button:focus-visible,select:focus-visible,input:focus-visible{outline:3px solid #edb840;outline-offset:2px}.filters,.cards{display:flex;gap:16px;flex-wrap:wrap;margin:0 0 22px}.filters{align-items:end}.cards article{flex:1;min-width:160px}.card,.panel{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:22px}.cards strong{font-size:29px;display:block;letter-spacing:-.03em}.cards small,.muted{color:var(--muted)}.grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px}.panel{min-width:0}.notice{border-left:4px solid #cc9827;background:#fff8e7;padding:16px 20px;margin-bottom:22px}.barrow{display:grid;grid-template-columns:140px 1fr 105px;align-items:center;gap:9px;font-size:12px;margin:10px 0}.bar{height:12px;background:#e8eff7;border-radius:4px}.bar span{height:100%;display:block;background:var(--blue);border-radius:4px}.barrow>span:first-child{overflow-wrap:anywhere}.tablewrap{overflow:auto;max-height:500px}table{border-collapse:collapse;width:100%;font-size:13px}th,td{text-align:left;padding:11px;border-bottom:1px solid var(--line)}thead{position:sticky;top:0;background:#eaf1f8}td.num{text-align:right}svg{width:100%;height:auto}svg text{font-family:system-ui;fill:#53677c;font-size:11px}details{margin:20px 0}pre{overflow:auto;font-size:12px;max-height:380px;background:white;padding:15px}footer{padding:25px 0;color:var(--muted);font-size:13px}@media(max-width:800px){.grid{grid-template-columns:1fr}.barrow{grid-template-columns:110px 1fr 85px}header{padding:28px 24px}.filters label{width:100%}select,input{width:100%}}</style></head>
+<body><header><div class="eyebrow">Data analysis portfolio · verified aggregates</div><h1>__TITLE__</h1><p id="intro"></p></header><main><section class="filters" aria-label="Dashboard filters" id="filters"></section><p id="scope" class="notice" aria-live="polite"></p><section class="cards" id="cards" aria-label="Key metrics"></section><div class="grid"><section class="panel"><h2 id="heading1"></h2><div id="chart1"></div></section><section class="panel"><h2 id="heading2"></h2><div id="chart2"></div></section></div><section class="panel"><h2 id="tableHeading"></h2><p id="tableNote" class="muted"></p><div class="tablewrap" id="table"></div></section><details><summary>Definitions, quality checks and limitations</summary><p id="definitions"></p><pre id="audit"></pre></details><footer>Read-only snapshot. Filters change displayed aggregates only. Source data and reproduction commands are documented in the repository README.</footer></main>
+<script id="payload" type="application/json">__DATA__</script><script>
+const D=JSON.parse(document.getElementById('payload').textContent),K='__KIND__';
+const el=id=>document.getElementById(id),esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const num=x=>new Intl.NumberFormat('en',{maximumFractionDigits:0}).format(x),money=x=>new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL',maximumFractionDigits:0}).format(x),pct=x=>(100*x).toFixed(1)+'%';
+const sum=(rows,k)=>rows.reduce((s,r)=>s+Number(r[k]||0),0);
+function select(id,label,options,value){let l=document.createElement('label');l.textContent=label;let s=document.createElement('select');s.id=id;for(const [v,t] of options){let o=document.createElement('option');o.value=v;o.textContent=t;s.append(o)}s.value=value;l.append(s);el('filters').append(l);s.onchange=draw;return s}
+function cards(items){el('cards').innerHTML=items.map(([label,value,note])=>`<article class="card"><small>${esc(label)}</small><strong>${esc(value)}</strong><small>${esc(note)}</small></article>`).join('')}
+function bars(target,rows,key,value,format,limit=12){let rs=rows.slice(0,limit),max=Math.max(...rs.map(r=>r[value]),1);el(target).innerHTML=rs.length?rs.map(r=>`<div class="barrow"><span>${esc(r[key])}</span><div class="bar"><span style="width:${Math.max(0,100*r[value]/max)}%"></span></div><span>${esc(format(r[value]))}</span></div>`).join(''):'No records in this selection.'}
+let current=[];
+function table(headers,rows){current=[headers,...rows];el('table').innerHTML='<table><thead><tr>'+headers.map(x=>'<th scope="col">'+esc(x)+'</th>').join('')+'</tr></thead><tbody>'+rows.map(r=>'<tr>'+r.map(x=>'<td>'+esc(x)+'</td>').join('')+'</tr>').join('')+'</tbody></table>'}
+function group(rows,key,value){let map=new Map;for(let r of rows)map.set(r[key],(map.get(r[key])||0)+r[value]);return [...map].map(([name,n])=>({name,n})).sort((a,b)=>b.n-a.n)}
+if(K==='ecommerce'){
+ el('intro').textContent='Which product categories and customer states drive delivered-order value? Explore commercial mix with reconciled order and item metrics.';
+ select('period','Period',[['all','All observed history'],['2017','2017 · 12 observed months'],['2017-matched','Jan–Jul 2017'],['2018-matched','Jan–Jul 2018']],'2017');
+ select('state','Customer state',[['all','All states'],...[...new Set(D.items.map(r=>r.state))].sort().map(x=>[x,x])],'all');
+ select('category','Product category',[['all','All categories'],...[...new Set(D.items.map(r=>r.category))].sort().map(x=>[x,x.replaceAll('_',' ')])],'all');
+ el('definitions').textContent='Product value = SUM(item price) for delivered orders; freight and payments are separate. AOV = product value / distinct orders. Category filters switch order/AOV cards off because exported category aggregates do not contain distinct order sets. Unknown categories are retained. All-history covers unequal month counts. 2017 is one observed year, not proof of recurring seasonality. Jan–Jul comparisons avoid the incomplete final August 2018. No profit or causal uplift is measured.';
+}else{
+ el('intro').textContent='When does demand occur and which station observations show directional imbalance? Use year-specific trips, hourly patterns and endpoint counts.';
+ const years=D.yearly.map(r=>[r.yr,String(r.yr)+(r.observed_months===12?' · 12 observed months':' · partial coverage')]);
+ select('year','Observation year',years,years.some(x=>x[0]===2025)?2025:years.at(-1)[0]);
+ let l=document.createElement('label');l.textContent='Station name or ID';let i=document.createElement('input');i.id='search';i.placeholder='Search station table';i.oninput=draw;l.append(i);el('filters').append(l);
+ el('definitions').textContent='Trips are exact-row-deduplicated and filtered to duration 60–86,400 seconds with valid time order. Months must be present before full-year comparisons; observed coverage does not prove source completeness. Station observations use (ID, name, year), not an assumed physical station identity. Coordinates are latest observed per year; large within-year shifts are flagged and excluded from the coordinate plot. Net flow = departures − arrivals; it is not a stockout or availability metric. The station search filters the table/plot only; trip KPIs and hourly distribution remain year-wide. New-station recommendations from the old heuristic are not part of this verified dashboard.';
+}
+let download=document.createElement('button');download.textContent='Download displayed table';download.onclick=()=>{let csv=current.map(r=>r.map(x=>'"'+String(x).replaceAll('"','""')+'"').join(',')).join('\r\n');let a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download=K+'-selection.csv';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)};el('filters').append(download);
+el('audit').textContent=JSON.stringify(D.audit,null,2);
+function draw(){if(K==='ecommerce'){
+ let p=el('period').value,s=el('state').value,c=el('category').value;
+ let inPeriod=r=>p==='all'||(r.month.startsWith(p.slice(0,4))&&(!p.endsWith('matched')||r.month.slice(5)<='07'));
+ let rows=D.items.filter(r=>inPeriod(r)&&(s==='all'||s===r.state)&&(c==='all'||c===r.category));
+ let orders=D.orders.filter(r=>inPeriod(r)&&(s==='all'||s===r.state)),value=sum(rows,'revenue'),n=sum(orders,'orders');
+ cards([['Product value',money(value),'Delivered items; excludes freight'],['Items',num(sum(rows,'items')),'Additive item count'],['Orders',c==='all'?num(n):'—',c==='all'?'Distinct orders':'Unavailable for category selection'],['Product AOV',c==='all'&&n?money(value/n):'—','Value / distinct orders']]);
+ el('scope').textContent=(p==='all'?'All-history totals have uneven calendar coverage. Do not interpret pooled month totals as seasonality.':'Selected period: '+el('period').selectedOptions[0].text+'.')+' State: '+s+'; category: '+c+'.';
+ el('heading1').textContent='Monthly product value';el('heading2').textContent='Leading categories';
+ bars('chart1',group(rows,'month','revenue').sort((a,b)=>a.name.localeCompare(b.name)),'name','n',money,40);
+ bars('chart2',group(rows,'category','revenue'),'name','n',money);
+ let states=group(rows,'state','revenue');el('tableHeading').textContent='Customer-state contribution';el('tableNote').textContent='Share uses the current selection. Product value is not profit.';
+ table(['State','Product value (BRL)','Share'],states.map(r=>[r.name,r.n.toFixed(2),value?pct(r.n/value):'—']));
+}else{
+ let year=Number(el('year').value),search=el('search').value.toLowerCase(),y=D.yearly.find(r=>r.yr===year),prev=D.yearly.find(r=>r.yr===year-1);
+ let stations=D.stations.filter(r=>r.yr===year),filtered=stations.filter(r=>(r.name+' '+r.station_id).toLowerCase().includes(search));
+ let full=r=>r&&r.observed_months===12&&r.first_observed.slice(5,10)==='01-01'&&r.last_observed.slice(5,10)==='12-31';
+ let yoy=full(y)&&full(prev)?pct(y.trips/prev.trips-1):'Unavailable';
+ cards([['Trips',num(y.trips),'Deduplicated, duration-filtered'],['Member share',pct(y.members/y.trips),'Known member / all valid trips'],['Median duration',y.median_minutes.toFixed(1)+' min','Year-wide trips'],['YoY trips',yoy,'Only two full observed years']]);
+ el('scope').textContent=year+': '+y.first_observed.slice(0,10)+' → '+y.last_observed.slice(0,10)+'; '+y.observed_months+' observed months. '+stations.length+' station ID/name observations (not a physical station count). Search affects station table/plot only.';
+ el('heading1').textContent='Monthly trip counts';el('heading2').textContent='Station coordinates · observed locations';
+ bars('chart1',D.monthly.filter(r=>r.yr===year).map(r=>({name:String(r.mon).padStart(2,'0'),n:r.trips})),'name','n',num,12);
+ let geo=filtered.filter(r=>r.lat>=40.69&&r.lat<=40.78&&r.lng>=-74.11&&r.lng<=-73.99&&(r.lat_span||0)<=.005&&(r.lng_span||0)<=.005);
+ el('chart2').innerHTML='<p class="muted">Longitude/latitude plot; no basemap. Blue = net departures; orange = net arrivals. '+geo.length+' observations shown.</p><svg viewBox="0 0 600 370" role="img" aria-label="Station observation coordinate plot"><rect x="30" y="15" width="540" height="315" fill="#edf3fa"/>'+geo.map(r=>`<circle cx="${30+(r.lng+74.11)/.12*540}" cy="${330-(r.lat-40.69)/.09*315}" r="${3+Math.min(12,Math.sqrt(r.departures+r.arrivals)/35)}" fill="${r.departures>=r.arrivals?'#2167ae':'#c46e24'}" opacity=".65"><title>${esc(r.name)} (${esc(r.station_id)}): net ${num(r.departures-r.arrivals)}</title></circle>`).join('')+'<text x="30" y="355">−74.11 longitude</text><text x="460" y="355">−73.99</text></svg>';
+ el('tableHeading').textContent='Station imbalance · '+year;el('tableNote').textContent='Largest absolute departure–arrival differences first. Positive values indicate net departures. Unknown-ID/name endpoints are reported in the audit, not silently assigned to stations.';
+ table(['Station','ID','Departures','Arrivals','Net flow','Coordinate flag'],filtered.sort((a,b)=>Math.abs(b.departures-b.arrivals)-Math.abs(a.departures-a.arrivals)).map(r=>[r.name,r.station_id,num(r.departures),num(r.arrivals),num(r.departures-r.arrivals),(r.lat_span||0)>.005||(r.lng_span||0)>.005?'Review relocation':'—']));
+}}
+draw();
+</script></body></html>'''
+    Path(path).parent.mkdir(parents=True,exist_ok=True)
+    Path(path).write_text(html.replace('__TITLE__',title).replace('__DATA__',payload).replace('__KIND__',kind),encoding='utf-8')

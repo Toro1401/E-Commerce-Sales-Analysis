@@ -127,3 +127,11 @@ data/
 .gemini/
 .agents/
 skills-lock.json
+
+*.duckdb
+*.duckdb.wal
+*.sqlite
+*.db
+*.building*
+
+bi-export/

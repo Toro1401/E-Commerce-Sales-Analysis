@@ -1,0 +1,72 @@
+{
+  "orders_duplicate_keys": 0,
+  "customers_duplicate_keys": 0,
+  "products_duplicate_keys": 0,
+  "category_translation_duplicate_keys": 0,
+  "item_duplicate_keys": 0,
+  "orphan_items": 0,
+  "delivered_without_items": 0,
+  "invalid_item_values": 0,
+  "revenue_reconciliation_delta": 0.0,
+  "payment_allocation_delta": 0.0,
+  "order_grain_revenue_delta": 0.0,
+  "unknown_category_items": 1537,
+  "total_orders": 96478,
+  "product_value": 13221498.11,
+  "payments": 15422461.77,
+  "status_counts": [
+    {
+      "order_status": "approved",
+      "records": 2
+    },
+    {
+      "order_status": "canceled",
+      "records": 625
+    },
+    {
+      "order_status": "created",
+      "records": 5
+    },
+    {
+      "order_status": "delivered",
+      "records": 96478
+    },
+    {
+      "order_status": "invoiced",
+      "records": 314
+    },
+    {
+      "order_status": "processing",
+      "records": 301
+    },
+    {
+      "order_status": "shipped",
+      "records": 1107
+    },
+    {
+      "order_status": "unavailable",
+      "records": 609
+    }
+  ],
+  "coverage": [
+    {
+      "year": "2016",
+      "observed_months": 3,
+      "first_observed": "2016-09-15 12:16:38",
+      "last_observed": "2016-12-23 23:16:47"
+    },
+    {
+      "year": "2017",
+      "observed_months": 12,
+      "first_observed": "2017-01-05 11:56:06",
+      "last_observed": "2017-12-31 23:29:31"
+    },
+    {
+      "year": "2018",
+      "observed_months": 8,
+      "first_observed": "2018-01-01 02:48:41",
+      "last_observed": "2018-08-29 15:00:37"
+    }
+  ],
+  "note": "Observed transactions do not prove source completeness. 2017 is the only calendar year with 12 observed months; restrict cross-year comparisons to Jan-Jul 2017/2018."
+}

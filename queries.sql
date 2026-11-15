@@ -145,44 +145,19 @@ GROUP BY day_of_week, day_num
 ORDER BY day_num;
 
 
--- Q8: Seasonal index — top 10 categories by quarter
--- Shows how each category's quarterly revenue compares to its annual average
-WITH quarterly AS (
-    SELECT
-        ct.product_category_name_english AS category,
-        CASE
-            WHEN CAST(STRFTIME('%m', o.order_purchase_timestamp) AS INTEGER) BETWEEN 1 AND 3 THEN 'Q1'
-            WHEN CAST(STRFTIME('%m', o.order_purchase_timestamp) AS INTEGER) BETWEEN 4 AND 6 THEN 'Q2'
-            WHEN CAST(STRFTIME('%m', o.order_purchase_timestamp) AS INTEGER) BETWEEN 7 AND 9 THEN 'Q3'
-            ELSE 'Q4'
-        END AS quarter,
-        SUM(oi.price) AS q_revenue
-    FROM order_items oi
-    JOIN orders o     ON oi.order_id = o.order_id
-    JOIN products p   ON oi.product_id = p.product_id
-    JOIN category_translation ct ON p.product_category_name = ct.product_category_name
-    WHERE o.order_status = 'delivered'
-      AND o.order_purchase_timestamp IS NOT NULL
-    GROUP BY category, quarter
-),
-cat_total AS (
-    SELECT category, SUM(q_revenue) AS annual_revenue
-    FROM quarterly
-    GROUP BY category
-),
-top_cats AS (
-    SELECT category FROM cat_total ORDER BY annual_revenue DESC LIMIT 10
+-- Q8: Quarterly distribution within 2017 only (12 observed months).
+-- One year cannot establish recurring seasonality; no pooled partial-year index.
+WITH q AS (
+ SELECT COALESCE(ct.product_category_name_english,p.product_category_name,'Unknown') category,
+        ((CAST(strftime('%m',o.order_purchase_timestamp) AS INTEGER)-1)/3)+1 quarter,
+        SUM(i.price) value
+ FROM order_items i JOIN orders o USING(order_id) LEFT JOIN products p USING(product_id)
+ LEFT JOIN category_translation ct ON ct.product_category_name=p.product_category_name
+ WHERE o.order_status='delivered' AND o.order_purchase_timestamp>='2017-01-01' AND o.order_purchase_timestamp<'2018-01-01'
+ GROUP BY 1,2
 )
-SELECT
-    q.category,
-    q.quarter,
-    ROUND(q.q_revenue, 2) AS quarterly_revenue,
-    ROUND(q.q_revenue / (ct.annual_revenue / 4.0) * 100, 1) AS seasonal_index
-FROM quarterly q
-JOIN cat_total ct ON q.category = ct.category
-WHERE q.category IN (SELECT category FROM top_cats)
-ORDER BY ct.annual_revenue DESC, q.quarter;
-
+SELECT category,quarter,value,100.0*value/SUM(value) OVER(PARTITION BY category) share_of_2017
+FROM q ORDER BY category,quarter;
 
 -- ============================================================
 -- REGIONAL ANALYSIS
@@ -243,7 +218,7 @@ WITH top_cats AS (
     JOIN orders o   ON oi.order_id = o.order_id
     JOIN products p ON oi.product_id = p.product_id
     JOIN category_translation ct ON p.product_category_name = ct.product_category_name
-    WHERE o.order_status = 'delivered'
+    WHERE o.order_status = 'delivered' AND substr(o.order_purchase_timestamp,1,4)='2017'
     GROUP BY category
     ORDER BY SUM(oi.price) DESC
     LIMIT 10
@@ -262,42 +237,28 @@ FROM order_items oi
 JOIN orders o     ON oi.order_id = o.order_id
 JOIN products p   ON oi.product_id = p.product_id
 JOIN category_translation ct ON p.product_category_name = ct.product_category_name
-WHERE o.order_status = 'delivered'
+WHERE o.order_status = 'delivered' AND substr(o.order_purchase_timestamp,1,4)='2017'
   AND o.order_purchase_timestamp IS NOT NULL
   AND ct.product_category_name_english IN (SELECT category FROM top_cats)
 GROUP BY ct.product_category_name_english, month_num
 ORDER BY ct.product_category_name_english, month_num;
 
 
--- Q12: Payment method distribution by category tier
-WITH cat_tiers AS (
-    SELECT
-        ct.product_category_name_english AS category,
-        SUM(oi.price) AS revenue,
-        NTILE(3) OVER (ORDER BY SUM(oi.price) DESC) AS tier
-    FROM order_items oi
-    JOIN orders o   ON oi.order_id = o.order_id
-    JOIN products p ON oi.product_id = p.product_id
-    JOIN category_translation ct ON p.product_category_name = ct.product_category_name
-    WHERE o.order_status = 'delivered'
-    GROUP BY category
+-- Q12: Payment-method totals allocated to category by product-value weights.
+-- Weighted payment rows are not a distinct order count. See reconciliation in build_portfolio.py.
+-- Allocate payment rows proportionally by product value; never count payments once per item.
+-- Fractional payment_count is an allocation weight, NOT a distinct count.
+WITH category_values AS (
+ SELECT i.order_id,COALESCE(ct.product_category_name_english,p.product_category_name,'Unknown') category,SUM(i.price) value
+ FROM order_items i LEFT JOIN products p USING(product_id)
+ LEFT JOIN category_translation ct ON ct.product_category_name=p.product_category_name
+ GROUP BY 1,2
+), weights AS (
+ SELECT *,CASE WHEN SUM(value) OVER(PARTITION BY order_id)>0
+ THEN value/SUM(value) OVER(PARTITION BY order_id)
+ ELSE 1.0/COUNT(*) OVER(PARTITION BY order_id) END weight FROM category_values
 )
-SELECT
-    CASE ct_tier.tier
-        WHEN 1 THEN 'Top Tier'
-        WHEN 2 THEN 'Mid Tier'
-        WHEN 3 THEN 'Low Tier'
-    END AS category_tier,
-    op.payment_type,
-    COUNT(*) AS payment_count,
-    ROUND(SUM(op.payment_value), 2) AS total_payment_value,
-    ROUND(AVG(op.payment_installments), 1) AS avg_installments
-FROM order_items oi
-JOIN orders o     ON oi.order_id = o.order_id
-JOIN products p   ON oi.product_id = p.product_id
-JOIN category_translation ct_name ON p.product_category_name = ct_name.product_category_name
-JOIN cat_tiers ct_tier ON ct_name.product_category_name_english = ct_tier.category
-JOIN order_payments op ON o.order_id = op.order_id
-WHERE o.order_status = 'delivered'
-GROUP BY category_tier, op.payment_type
-ORDER BY category_tier, total_payment_value DESC;
+SELECT w.category,p.payment_type,SUM(p.payment_value*w.weight) allocated_payment,
+       SUM(w.weight) allocated_payment_rows
+FROM weights w JOIN order_payments p USING(order_id) JOIN orders o USING(order_id)
+WHERE o.order_status='delivered' GROUP BY 1,2;

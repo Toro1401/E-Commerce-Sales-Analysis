@@ -1,0 +1,2 @@
+# Verified pipeline and tests use Python standard library only.
+# Optional legacy plots: pip install pandas matplotlib seaborn
