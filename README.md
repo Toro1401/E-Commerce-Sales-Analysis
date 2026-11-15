@@ -47,3 +47,7 @@ The exporter opens the database read-only, checks primary-key uniqueness, orphan
 `portfolio_queries.sql` and `build_portfolio.py` are authoritative. `queries.sql` retains corrected exploratory examples. Existing `analysis.py` and PNG charts are legacy exploratory assets; their pooled-month/causal captions are not validated findings and are not used by the verified dashboard. A native `.pbix` is not shipped: [the guide](docs/POWER_BI.md) includes a CSV exporter, relationships, DAX and validation steps. The browser dashboard is the working interactive deliverable.
 
 Only delivered orders are analyzed. Product value is not marketplace commission or profit; payments are different from product value. Costs, acquisition spend and experimental treatment data are unavailable. Category filters disable order/AOV cards because published category aggregates cannot produce a cross-category distinct order count. The Power BI item-grain export supports that distinct count correctly.
+
+## Repeatable verification
+
+Run `python scripts/verify.py` in the project Python environment. It validates local documentation links and executes the reviewed command arrays in `ai-toolkit.json` without a shell. Read the manifest before running. Results are saved locally in `.verification/latest.json` (ignored by Git). Dashboard projects also require Node.js on PATH for their JavaScript/filter smoke checks. Passing local checks does not establish actual-browser, deployment or live-service acceptance. See AGENTS.md and CLAUDE.md for cross-client workflow instructions.

@@ -1,0 +1,24 @@
+{
+  "project": "E-Commerce Sales Analysis",
+  "checks": [
+    {
+      "name": "regression-tests",
+      "command": [
+        "{python}",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-v"
+      ]
+    },
+    {
+      "name": "dashboard-filters",
+      "command": [
+        "node",
+        "tests/check_dashboard.cjs"
+      ]
+    }
+  ]
+}
