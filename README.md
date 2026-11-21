@@ -1,13 +1,11 @@
 # Olist Commercial Performance Analysis
 
-**Business question:** which product categories and customer states drive delivered-order value, and how does performance change over comparable periods?
-
-A SQL-first analytical case using the Brazilian Olist dataset. Includes reconciled metrics, an offline interactive dashboard and a Power BI import guide. No profit, recurring seasonality or causal marketing uplift is claimed.
+Which product categories and customer states account for the most value from delivered orders? How do those figures change over comparable periods? This project uses SQL to answer those questions with the Brazilian Olist dataset. It includes reconciled metrics, an offline dashboard, and a Power BI import guide. The analysis cannot establish profit, recurring seasonality, or the effect of marketing.
 
 ## Explore the results
 
-- **[Interactive dashboard](dashboard/index.html)** — download/open the HTML locally; all data is embedded and no server is required.
-- **[Verified findings](analysis_report.md)** and **[quality checks](dashboard/quality.json)**.
+- Open the [interactive dashboard](dashboard/index.html) in a browser. The HTML contains all the data it needs.
+- [Verified findings](analysis_report.md) and [data quality checks](dashboard/quality.json).
 - [Authoritative SQL](portfolio_queries.sql), [data model / KPI definitions](docs/DATA_MODEL.md), [Power BI guide](docs/POWER_BI.md), [PRD](PRD.md).
 
 ![Dashboard preview](docs/dashboard-preview.svg)
@@ -19,35 +17,35 @@ A SQL-first analytical case using the Brazilian Olist dataset. Includes reconcil
 | Delivered orders | 96,478 |
 | Product value, excluding freight | R$13,221,498.11 |
 | Payment value, including freight/adjustments | R$15,422,461.77 |
-| Items without a known category | 1,537 — retained in totals |
+| Items without a known category | 1,537 (included in totals) |
 | Top-ten category share of product value | 62.4% |
 
-The earlier 63.3% category-share claim used a narrower category denominator. The verified version retains unknown categories and reconciles to all delivered product value. September/October totals pooled across partial years cannot establish a seasonal dip. Jan–Jul 2017 versus Jan–Jul 2018 is available as an explicit matched-window comparison; source completeness is not proven by observed transactions.
+The previous share of 63.3% used a narrower denominator. The 62.4% above uses the full product value of delivered orders, including items without a known category. Pooling September and October across partial years cannot establish a seasonal dip. To compare equivalent periods, use January through July 2017 and the same months in 2018. The transactions alone do not establish source completeness.
 
 ## Reproduce
 
-Python 3.10+; the verified exporter uses only the standard library.
+The exporter needs Python 3.10+ and uses only its standard library.
 
-1. Download the [Brazilian E-Commerce Public Dataset by Olist](https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce) and place its CSV files in `dataset/`. Follow the source dataset's license/terms; no raw data is redistributed here.
+1. Download the [Brazilian E-Commerce Public Dataset by Olist](https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce) and place its CSV files in `dataset/`. Follow the dataset’s license and terms when using the CSVs. The repository does not redistribute them.
 2. Use the existing `ecommerce.db`, or build a new one with `python ingest_dataset.py`.
 3. Run `python build_portfolio.py --db ecommerce.db` (or `--db ecommerce_rebuilt.db`).
 4. Open `dashboard/index.html` directly. Choose a period, state and category. Export the displayed table if needed.
 5. Run `python -m unittest discover -s tests -v` for fixture-based regression checks without the real dataset.
 
-The exporter opens the database read-only, checks primary-key uniqueness, orphan items, invalid prices, delivered orders without items and reconciliations. It writes aggregate CSV/JSON, HTML and a generated report. No customer/order identifiers are published by the dashboard.
+The exporter opens the database in read-only mode. It checks for duplicate primary keys, orphan items, invalid prices, and delivered orders without items, then reconciles the totals. It writes aggregated CSV and JSON files, the dashboard HTML, and the report. The dashboard does not expose customer or order IDs.
 
 ## Decisions supported
 
-- Identify high-value categories for commercial review, then obtain costs/margins before reallocating budget.
+- Review the categories with the highest sales value. Gather cost and margin data before moving budget.
 - Separate observed marketplace growth from seasonality before planning promotions.
 - Investigate delivery economics and customer acquisition before proposing regional expansion.
 
 ## Structure and boundaries
 
-`portfolio_queries.sql` and `build_portfolio.py` are authoritative. `queries.sql` retains corrected exploratory examples. Existing `analysis.py` and PNG charts are legacy exploratory assets; their pooled-month/causal captions are not validated findings and are not used by the verified dashboard. A native `.pbix` is not shipped: [the guide](docs/POWER_BI.md) includes a CSV exporter, relationships, DAX and validation steps. The browser dashboard is the working interactive deliverable.
+`portfolio_queries.sql` and `build_portfolio.py` generate the dashboard and verified results. `queries.sql` contains corrected exploratory examples. The dashboard skips `analysis.py` and the older PNG charts, whose captions about pooled months and causal effects have not been validated. The browser dashboard is ready to use. To build your own `.pbix`, follow [the Power BI guide](docs/POWER_BI.md) for the CSV exporter, relationships, DAX, and validation.
 
-Only delivered orders are analyzed. Product value is not marketplace commission or profit; payments are different from product value. Costs, acquisition spend and experimental treatment data are unavailable. Category filters disable order/AOV cards because published category aggregates cannot produce a cross-category distinct order count. The Power BI item-grain export supports that distinct count correctly.
+The analysis covers delivered orders only. Product value, payments, marketplace commission, and profit are separate measures. The dataset used here has no costs, acquisition spend, or experimental treatment data. When you filter by category, the dashboard disables the order count and average order value because an order can appear in multiple categories. The Power BI export has one row per item and supports a distinct count across categories.
 
 ## Repeatable verification
 
-Run `python scripts/verify.py` in the project Python environment. It validates local documentation links and executes the reviewed command arrays in `ai-toolkit.json` without a shell. Read the manifest before running. Results are saved locally in `.verification/latest.json` (ignored by Git). Dashboard projects also require Node.js on PATH for their JavaScript/filter smoke checks. Passing local checks does not establish actual-browser, deployment or live-service acceptance. See AGENTS.md and CLAUDE.md for cross-client workflow instructions.
+Review the commands in `ai-toolkit.json`, then run `python scripts/verify.py` in the project’s Python environment. The script checks local documentation links and runs those commands without a shell. It saves the results in `.verification/latest.json`, which Git ignores. Dashboard JavaScript and filter checks require Node.js on PATH. The local checks do not cover browser behavior, deployment, or live services. See AGENTS.md and CLAUDE.md for the project workflows.
